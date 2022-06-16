@@ -103,7 +103,12 @@ class GameSprite(pygame.sprite.Sprite):
             if move[3]:
                 window.blit(stationary_d, (self.rect.x, self.rect.y))
             
-    
+class Level:
+    def __init__(self):
+        self.display_surface = pygame.display.get_surface()
+        self.visible_sprites = pygame.sprite.Group()
+        self.obstacle_sprites = pygame.sprite.Group()
+
 class Player():
     def __init__(self, x, y):
         self.images_down = []
@@ -147,15 +152,59 @@ class Player():
             self.stepIndex +=1
         else:
             if move[0]:
-                 window.blit(stationary_u, (x,y))
+                 window.blit(stationary_u, (self.rect_x, self.rect_y))
             if move[1]:
-                window.blit(stationary_d, (x,y))
+                window.blit(stationary_d, (self.rect_x, self.rect_y))
             if move[2]:
-                window.blit(stationary_d, (x,y))
+                window.blit(stationary_d, (self.rect_x, self.rect_y))
             if move[3]:
-                window.blit(stationary_d, (x,y))
-            
-player = GameSprite("Hero_walk0.png", 4, 0, 270, 0)
+                window.blit(stationary_d, (self.rect_x, self.rect_y))
+
+class CameraGroup(pygame.sprite.Group):
+    def __init__(self):
+        super().__init__()
+        self.display_surface = pygame.display.get_surface()
+        self.half_width = self.display_surface.get_size()[0] // 2
+        self.half_height = self.display_surface.get_size()[1] // 2
+        self.offset = pygame.math.Vector2()
+    
+        self.camera_borders = {'left': 200, 'right': 200, 'top': 100, 'bottom': 100}
+        l = self.camera_borders['left']
+        t = self.camera_borders['top']
+        w = self.display_surface.get_size()[0] - (self.camera_borders["left"] + self.camera_borders["right"])
+        h = self.display_surface.get_size()[0] - (self.camera_borders["top"] + self.camera_borders["bottom"])
+        self.camera_rect = pygame.Rect(l,t,w,h)
+
+        self.ground_surf = pygame.image.load("Bg.png").convert_alpha()
+        self.ground_surf = pygame.transform.scale(self.ground_surf, (1200,2400)) #self.half_width,-3000 + self.display_surface.get_size()[0], 1200, 3000))
+        self.ground_rect = self.ground_surf.get_rect(bottomleft = (0,600))
+    
+    def center_target_camera(self, target):
+        self.offset.x = target.rect.centerx- self.half_width
+        self.offset.y = target.rect.centery- self.half_height
+    def box_target_camera(self, target):
+        if target.rect.left < self.camera_rect.left:
+            self.camera_rect.left = target.rect.left
+        if target.rect.right > self.camera_rect.right:
+            self.camera_rect.right = target.rect.right
+        if target.rect.top < self.camera_rect.top:
+            self.camera_rect.top = target.rect.top
+        if target.rect.bottom > self.camera_rect.bottom:
+            self.camera_rect.bottom = target.rect.bottom
+
+        self.offset.x = self.camera_rect.left - self.camera_borders['left']
+        self.offset.y = self.camera_rect.top - self.camera_borders['top']
+
+    def custom_draw(self, target):
+
+        self.center_target_camera(target)
+
+        ground_offset = self.ground_rect.topleft - self.offset*2
+        self.display_surface.blit(self.ground_surf, ground_offset)
+
+
+player = GameSprite("Hero_walk0.png", 3, 500, 300, 0)
+camera = CameraGroup()
 
 game = True
 width = 1200
@@ -173,22 +222,13 @@ move_up = False
 render_count = 0
 
 while game:
-    
-    window.blit(bg, (i, -3000+600))
-    window.blit(bg, (i+width,0))
-    window.blit(bg, (i - width, 0))
-    if i == -width:
-        window.blit(bg, (i, 0))
-        i = 0
-    if i == width:
-        window.blit(bg, (i, 0))
-        i = 0
 
     for e in pygame.event.get():
         if e.type == pygame.QUIT:
             game = False
     
-
+    camera.box_target_camera(player)
+    camera.custom_draw(player)
     player.reset()
     player.update()
     pygame.display.update()
