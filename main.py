@@ -3,16 +3,27 @@ import os
 pygame.init()
 clock = pygame.time.Clock()
 
+e_img_hit = ["Enemy1_attack_L1.png","Enemy1_attack_L2.png","Enemy1_attack_L3.png"]
+e_img_left = ["Enemy1_walk_L1.png", "Enemy1_walk_L2.png", "Enemy1_walk_L3.png" ]
+e_img_right = ["Enemy1_walk_R1.png", "Enemy1_walk_R2.png", "Enemy1_walk_R3.png"]
+e_img_up = ["Enemy1_walk_U1.png", "Enemy1_walk_U2.png", "Enemy1_walk_U3.png"]
+e_img_down = ["Enemy1_walk_D1.png", "Enemy1_walk_D2.png", "Enemy1_walk_D3.png"]
+
 img_hit = ["Hero_hit_R1","Hero_hit_R2","Hero_hit_R3","Hero_hit_R4"]
 img_left = ["Hero_stay_L1.png", "Hero_walk_L1.png", "Hero_walk_L2.png", "Hero_walk_L3.png", "Hero_walk_L4.png" ]
 img_right = ["Hero_stay_R2.png", "Hero_walk_R1.png", "Hero_walk_R2.png", "Hero_walk_R3.png", "Hero_walk_R4.png" ]
 img_up = ["Hero_stay_u1.png", "Hero_walk_u1.png", "Hero_walk_u2.png", "Hero_walk_u3.png", "Hero_walk_u4.png" ]
 img_down = ["Hero_walk0.png", "Hero_walk1.png", "Hero_walk2.png", "Hero_walk3.png", "Hero_walk4.png" ]
 
-stationary_d = pygame.image.load(os.path.join("Hero_walk0.png"))
-stationary_u = pygame.image.load(os.path.join("Hero_stay_u1.png"))
-stationary_r = pygame.image.load(os.path.join("Hero_stay_R2.png"))
-stationary_l = pygame.image.load(os.path.join("Hero_stay_L1.png"))
+#stationary_d = pygame.image.load(os.path.join("Hero_walk0.png"))
+#stationary_u = pygame.image.load(os.path.join("Hero_stay_u1.png"))
+#stationary_r = pygame.image.load(os.path.join("Hero_stay_R2.png"))
+#stationary_l = pygame.image.load(os.path.join("Hero_stay_L1.png"))
+
+#e_stationary_d = pygame.image.load(os.path.join("Enemy1_walk_D1.png"))
+#e_stationary_u = pygame.image.load(os.path.join("Enemy1_walk_U1.png"))
+#e_stationary_r = pygame.image.load(os.path.join("Enemy1_walk_R1.png"))
+#e_stationary_l = pygame.image.load(os.path.join("Enemy1_walk_L1.png"))
 
 move = [True, True, True, True]
 
@@ -23,7 +34,7 @@ bg_img = pygame.image.load("Bg.png")
 bg = pygame.transform.scale(bg_img,(1200,3000))
 
 class GameSprite(pygame.sprite.Sprite):
-    def __init__(self, player_image, player_speed, player_x, player_y, dirrection):
+    def __init__(self, player_image, player_speed, player_x, player_y, hit):
         super().__init__()
         self.image = pygame.transform.scale(pygame.image.load(player_image), (65,65)) 
         self.speed = player_speed
@@ -32,40 +43,72 @@ class GameSprite(pygame.sprite.Sprite):
         self.rect.y = player_y
         self.stepIndex = 0
         self.dirrection = pygame.math.Vector2()
+        self.hit = hit
+        self.HP = 100
+        self.move_up = False
+        self.move_down = False
+        self.move_left = False
+        self.move_right = False
+        self.time_out_anim = 5
+    
+    def setHP(self, target_e):
+        target_e.HP -= self.hit
+        if target_e.HP <= 0:
+            target_e.kill()
 
+    def getHP(self):
+        return self.HP
+
+    def attack(self, target_e):
+        if abs(target_e.rect.left - self.rect.right) <= 20:
+           self.setHP(target_e)
+        elif abs(target_e.rect.right - self.rect.left) <= 20:
+           self.setHP(target_e)
+        elif abs(target_e.rect.top - self.rect.bottom) <= 20:
+            self.setHP(target_e)
+        elif abs(target_e.rect.bottom - self.rect.top) <= 20:
+            self.setHP(target_e)  
+
+    def move(self, speed):
+        self.rect.center += self.dirrection * speed
+        print(self.rect.center)
+
+            
+class Level:
+    def __init__(self):
+        self.display_surface = pygame.display.get_surface()
+        self.visible_sprites = pygame.sprite.Group()
+        self.obstacle_sprites = pygame.sprite.Group()
+
+class Player(GameSprite):
     def input(self):
         keys = pygame.key.get_pressed()
-        global move_up
-        global move_down
-        global move_left
-        global move_right
         if keys[pygame.K_UP]:
             self.dirrection.y = -1
-            move_up = True
-            move_down = False
+            self.move_up = True
+            self.move_down = False
         elif keys[pygame.K_DOWN]:
             self.dirrection.y = 1
-            move_up = False
-            move_down = True
+            self.move_up = False
+            self.move_down = True
         else:
             self.dirrection.y = 0
-            move_up = False
-            move_down = False
-
+            self.move_up = False
+            self.move_down = False
 
         if keys[pygame.K_RIGHT]:
             self.dirrection.x = 1
-            move_right = True
-            move_left = False
+            self.move_right = True
+            self.move_left = False
         elif keys[pygame.K_LEFT]:
             self.dirrection.x = -1
-            move_left = True
-            move_right = False
+            self.move_left = True
+            self.move_right = False
         else:
             self.dirrection.x = 0
-            move_left = False
-            move_right = False
-    
+            self.move_left = False
+            self.move_right = False
+
     def move(self, speed):
         self.rect.center += self.dirrection * speed
         print(self.rect.center)
@@ -76,89 +119,96 @@ class GameSprite(pygame.sprite.Sprite):
         print(self.dirrection)
 
     def reset(self):
+        global render_count, move
+        if render_count == 5:
+            render_count == 0
+        if self.stepIndex >= 3:
+            self.stepIndex = 0
+        if self.move_left:
+            window.blit(pygame.image.load(
+                img_left[self.stepIndex]), (self.rect.x, self.rect.y))
+            self.time_out_anim -= 1
+            if self.time_out_anim <= 0:
+                self.stepIndex += 1
+                self.time_out_anim = 5
+            move = [False, False, False, True]
+        elif self.move_right:
+            window.blit(pygame.image.load(
+                img_right[self.stepIndex]), (self.rect.x, self.rect.y))
+            self.time_out_anim -= 1
+            if self.time_out_anim <= 0:
+                self.stepIndex += 1
+                self.time_out_anim = 5
+            move = [False, False, True, False]
+        elif self.move_down:
+            window.blit(pygame.image.load(
+                img_down[self.stepIndex]), (self.rect.x, self.rect.y))
+            self.time_out_anim -= 1
+            if self.time_out_anim <= 0:
+                self.stepIndex += 1
+                self.time_out_anim = 5
+            move = [False, True, False,  False]
+        elif self.move_up:
+            window.blit(pygame.image.load(
+                img_up[self.stepIndex]), (self.rect.x, self.rect.y))
+            self.time_out_anim -= 1
+            if self.time_out_anim <= 0:
+                self.stepIndex += 1
+                self.time_out_anim = 5
+            move = [True, False,  False, False]
+        else:
+            if move[0]:
+                window.blit(pygame.image.load(
+                    img_up[0]), (self.rect.x, self.rect.y))
+            elif move[1]:
+                window.blit(pygame.image.load(
+                    img_down[0]), (self.rect.x, self.rect.y))
+            elif move[2]:
+                window.blit(pygame.image.load(
+                    img_right[0]), (self.rect.x, self.rect.y))
+            elif move[3]:
+                window.blit(pygame.image.load(
+                    img_left[0]), (self.rect.x, self.rect.y))
+
+
+class Enemy(GameSprite):
+       def reset(self):
         global render_count
-        if render_count == 5: render_count == 0
+        if render_count == 5:
+            render_count == 0
         if self.stepIndex >= 3:
             self.stepIndex = 0
         if move_left:
             if render_count % 5 == 0:
-                window.blit(pygame.image.load(img_left[self.stepIndex]), (self.rect.x, self.rect.y))
-                self.stepIndex +=1
+                window.blit(pygame.image.load(
+                    img_left[self.stepIndex]), (self.rect.x, self.rect.y))
+                self.stepIndex += 1
         elif move_right:
-            window.blit(pygame.image.load(img_right[self.stepIndex]), (self.rect.x, self.rect.y))
-            self.stepIndex +=1
+            window.blit(pygame.image.load(
+                img_right[self.stepIndex]), (self.rect.x, self.rect.y))
+            self.stepIndex += 1
         elif move_down:
-            window.blit(pygame.image.load(img_down[self.stepIndex]), (self.rect.x, self.rect.y))
-            self.stepIndex +=1
+            window.blit(pygame.image.load(
+                img_down[self.stepIndex]), (self.rect.x, self.rect.y))
+            self.stepIndex += 1
         elif move_up:
-            window.blit(pygame.image.load(img_up[self.stepIndex]), (self.rect.x, self.rect.y))
-            self.stepIndex +=1
+            window.blit(pygame.image.load(
+                img_up[self.stepIndex]), (self.rect.x, self.rect.y))
+            self.stepIndex += 1
         else:
             if move[0]:
-                 window.blit(stationary_u, (self.rect.x, self.rect.y))
-            if move[1]:
-                window.blit(stationary_d, (self.rect.x, self.rect.y))
-            if move[2]:
-                window.blit(stationary_d, (self.rect.x, self.rect.y))
-            if move[3]:
-                window.blit(stationary_d, (self.rect.x, self.rect.y))
-            
-class Level:
-    def __init__(self):
-        self.display_surface = pygame.display.get_surface()
-        self.visible_sprites = pygame.sprite.Group()
-        self.obstacle_sprites = pygame.sprite.Group()
+                window.blit(pygame.image.load(
+                    img_up[0]), (self.rect.x, self.rect.y))
+            elif move[1]:
+                window.blit(pygame.image.load(
+                    img_down[0]), (self.rect.x, self.rect.y))
+            elif move[2]:
+                window.blit(pygame.image.load(
+                    img_right[0]), (self.rect.x, self.rect.y))
+            elif move[3]:
+                window.blit(pygame.image.load(
+                    img_left[0]), (self.rect.x, self.rect.y))
 
-class Player():
-    def __init__(self, x, y):
-        self.images_down = []
-        self.images_up = []
-        self.images_left = []
-        self.images_right = []
-        self.index = 0
-        self.counter = 0
-        for num in range(1 , 5):
-            img_down = pygame.image.load(f'Hero_walk{num}.png')
-            img_down = pygame.transform.scale(img_down, (60,60))
-            img_up = pygame.image.load(f'Hero_walk_u{num}.png')
-            img_up = pygame.transform.scale(img_up, (60,60))
-            img_left = pygame.image.load(f'Hero_walk_L{num}.png')
-            img_left = pygame.transform.scale(img_left, (60,60))
-            img_right = pygame.image.load(f'Hero_walk_R{num}.png')
-            img_right = pygame.transform.scale(img_right, (60,60))
-            self.images_down.append(img_down)
-            self.images_up.append(img_up)
-            self.images_left.append(img_left)
-            self.images_right.append(img_right)
-        self.image = self.images_down[self.index]
-        self.rect = self.image.get_rect()
-        self.rect_x = x
-        self.rect_y = y
-
-    def reset(self):
-        if self.stepIndex >= 3:
-            self.stepIndex = 0
-        if move_left:
-            window.blit(img_left[self.stepIndex], (self.rect_x, self.rect_y))
-            self.stepIndex +=1
-        elif move_right:
-            window.blit(img_right[self.stepIndex], (self.rect_x, self.rect_y))
-            self.stepIndex +=1
-        elif move_right:
-            window.blit(img_down[self.stepIndex], (self.rect_x, self.rect_y))
-            self.stepIndex +=1
-        elif move_right:
-            window.blit(img_up[self.stepIndex], (self.rect_x, self.rect_y))
-            self.stepIndex +=1
-        else:
-            if move[0]:
-                 window.blit(stationary_u, (self.rect_x, self.rect_y))
-            if move[1]:
-                window.blit(stationary_d, (self.rect_x, self.rect_y))
-            if move[2]:
-                window.blit(stationary_d, (self.rect_x, self.rect_y))
-            if move[3]:
-                window.blit(stationary_d, (self.rect_x, self.rect_y))
 
 class CameraGroup(pygame.sprite.Group):
     def __init__(self):
@@ -203,8 +253,11 @@ class CameraGroup(pygame.sprite.Group):
         self.display_surface.blit(self.ground_surf, ground_offset)
 
 
-player = GameSprite("Hero_walk0.png", 3, 500, 300, 0)
+enemy = GameSprite("Enemy1_walk_D1.png", 3, 550, 300, 0)
+player = Player("Hero_walk0.png", 3, 500, 300, 0)
 camera = CameraGroup()
+
+
 
 game = True
 width = 1200
@@ -226,7 +279,8 @@ while game:
     for e in pygame.event.get():
         if e.type == pygame.QUIT:
             game = False
-    
+    #enemy.update()
+    #enemy.reset()
     camera.box_target_camera(player)
     camera.custom_draw(player)
     player.reset()
